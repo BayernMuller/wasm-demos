@@ -7,7 +7,7 @@ import icon from 'astro-icon'
 // https://astro.build/config
 export default defineConfig({
   compressHTML: true,
-  site: 'https://bayernmuller.github.io/wasm-demos',
+  site: 'https://bayernmuller.github.io/',
   base: '/wasm-demos',
   integrations: [
     mdx(),
