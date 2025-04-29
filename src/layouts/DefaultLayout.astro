@@ -11,6 +11,7 @@ const {
   url = Astro.site,
   image = 'social-preview-image.png',
   author = 'Mark Teekman',
+  hideFooter = false,
 } = Astro.props
 ---
 
@@ -30,7 +31,7 @@ const {
     <main id="main-content" transition:animate="fade">
       <slot />
     </main>
-    <Footer />
+    {!hideFooter && <Footer />}
     <style lang="scss" is:global>
       // theme settings
       :root {
