@@ -1,0 +1,65 @@
+---
+import DefaultLayout from '../layouts/DefaultLayout.astro'
+---
+
+<DefaultLayout title="Compare Loop Speed" hideFooter={true}>
+  <section class="my-12">
+    <div class="container">
+      <h1>Compare Loop Speed</h1>
+    </div>
+  </section>
+  <section class="my-12">
+    <div class="space-content container">
+      <p class="text">Compare the speed of C++ WebAssembly and JavaScript by running identical loop operations.</p>
+      
+      <div class="border-b border-gray-300 my-8"></div>
+      <div class="mt-8">
+        <label for="loopCount" class="block text-lg mb-2">Enter number of loops:</label>
+        <input type="number" id="loopCount" class="border p-2 rounded" min="1" value="1000">
+        <button id="startLoop" class="bg-blue-500 text-white px-4 py-2 rounded ml-2">Start Loop</button>
+      </div>
+
+      <div class="mt-4">
+        <p class="text-xl">Current Count: <span id="counter">0</span></p>
+        <p class="text-xl">Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+      </div>
+    </div>
+  </section>
+</DefaultLayout>
+
+<script>
+  const loopCountInput = document.getElementById('loopCount');
+  const startButton = document.getElementById('startLoop');
+  const counterDisplay = document.getElementById('counter');
+  const elapsedTimeDisplay = document.getElementById('elapsedTime');
+  let isRunning = false;
+  let counter = 0;
+  let startTime = 0;
+
+  startButton.addEventListener('click', () => {
+    if (isRunning) return;
+    
+    const loopCount = parseInt(loopCountInput.value);
+    if (loopCount < 1) return;
+
+    isRunning = true;
+    counter = 0;
+    startTime = performance.now();
+    
+    const loop = () => {
+      if (counter >= loopCount) {
+        isRunning = false;
+        const endTime = performance.now();
+        const elapsedTime = endTime - startTime;
+        elapsedTimeDisplay.textContent = elapsedTime.toFixed(2);
+        return;
+      }
+      
+      counter++;
+      counterDisplay.textContent = counter;
+      requestAnimationFrame(loop);
+    };
+
+    requestAnimationFrame(loop);
+  });
+</script>
