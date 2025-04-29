@@ -6,8 +6,8 @@ import Header from '../components/Header.astro'
 import Footer from '../components/Footer.astro'
 
 const {
-  title = 'Astro',
-  description = 'A starter project with accessibility features using Astro static site builder. Contains accessible landmarks, skip links, a dark mode color scheme, better focus outline and keyboard menu navigation.',
+  title = 'wasm-demos',
+  description = 'A collection of demos for WebAssembly.',
   url = Astro.site,
   image = 'social-preview-image.png',
   author = 'Mark Teekman',
@@ -21,7 +21,7 @@ const {
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
 
     <!-- favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/wasm-demos/favicon.svg" />
 
     <SiteMeta title={title} description={description.substring(0, 100)} url={url} image={image} author={author} />
   </head>
