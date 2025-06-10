@@ -2,43 +2,47 @@
 import DefaultLayout from '../layouts/DefaultLayout.astro'
 ---
 
-<DefaultLayout title="Compare Loop Speed" hideFooter={true}>
+<DefaultLayout title="Pixelate Image (JS vs WebAssembly)" hideFooter={true}>
   <section class="my-12">
     <div class="container mx-auto">
-      <h1 class="text-3xl font-bold">Compare Loop Speed (JS vs WebAssembly)</h1>
-      <p class="mt-4 text-gray-700">Run an identical counting loop in plain JavaScript and in C++ compiled to WebAssembly to compare performance.</p>
+      <button class="text-lg" onclick="window.history.back()">← Back to Demos</button>
+      <br><br><br>
+      <h1 class="text-3xl font-bold">Pixelate Image (JS vs WebAssembly)</h1>
+      <p class="mt-4 text-2xl">Compare performance of pixelation using JavaScript vs WebAssembly.</p>
 
       <div class="mt-8 flex flex-col gap-4">
-        <label class="block">
-          <span class="text-lg">Number of iterations</span>
-          <input
-            id="loopCount"
-            type="number"
-            min="1"
-            value="10000000"
-            class="mt-1 w-full rounded border p-2 text-black"
-          />
+        <!-- Block Size Slider -->
+        <label class="flex items-center gap-4">
+          <span class="w-28">Block Size:</span>
+          <input id="blockSlider" type="range" min="2" max="100" value="50"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+          <span id="blockValue" class="w-10 text-right">50</span>
         </label>
 
-        <fieldset class="flex gap-4">
+        <!-- Mode Selection -->
+        <fieldset class="flex gap-6 mt-2">
           <label class="flex items-center gap-2">
-            <input type="radio" name="mode" id="mode-js" value="js" checked>
-            <span>JavaScript</span>
+            <input type="radio" name="mode" value="js" checked class="accent-blue-600" />
+            <span><b>JavaScript</b></span>
           </label>
           <label class="flex items-center gap-2">
-            <input type="radio" name="mode" id="mode-wasm" value="wasm">
-            <span>WebAssembly (C++)</span>
+            <input type="radio" name="mode" value="wasm" class="accent-blue-600" />
+            <span><b>WebAssembly (C++)</b></span>
           </label>
         </fieldset>
 
-        <button id="startLoop" class="w-max rounded bg-blue-500 px-4 py-2 font-semibold text-white">
-          Start Benchmark
-        </button>
-
-        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <p>Current Count: <span id="counter">0</span></p>
-          <p>Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+        <!-- Action -->
+        <div class="flex gap-4">
+          <button id="loadBtn" class="w-max rounded bg-blue-600 hover:bg-blue-700 px-5 py-2 text-white font-semibold" onclick="location.reload()">Load Image</button>
+          <button id="invertBtn" class="w-max rounded bg-blue-600 hover:bg-blue-700 px-5 py-2 text-white font-semibold">
+            Run Pixelation
+          </button>
         </div>
+
+        <p>Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+
+        <!-- Canvas -->
+        <canvas id="canvas" width="512" height="512" class="border border-gray-400 hidden"></canvas>
       </div>
     </div>
   </section>
@@ -47,24 +51,137 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
 <script type="module">
   import createModule from '/wasm-demos/loop.js';
 
-  let t0 = 0;
+  let Module;
+  let originalImage;
+  let imageLoaded = false; // ✅ 이미지 로딩 완료 여부
 
-  // 전역 콜백 등록
-  window.onLoopLog = function (count) {
-    document.getElementById('counter').textContent = count.toLocaleString();
-    document.getElementById('elapsedTime').textContent = Math.round(performance.now() - t0);
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  const btn = document.getElementById('invertBtn');
+  const modeInputs = document.querySelectorAll('input[name="mode"]');
+  const elapsedEl = document.getElementById('elapsedTime');
+
+  const blockSlider = document.getElementById('blockSlider');
+  const blockValue = document.getElementById('blockValue');
+
+  // 슬라이더 값 반영
+  blockSlider.addEventListener('input', () => {
+    blockValue.textContent = blockSlider.value;
+  });
+
+  // 이미지 초기화 함수
+  function resetImage() {
+    if (imageLoaded && originalImage) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(originalImage, 0, 0);
+      elapsedEl.textContent = '0';
+    }
+  }
+
+  // 라디오 변경 시 초기화
+  modeInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      resetImage();
+    });
+  });
+
+  // 이미지 로드
+  originalImage = new Image();
+  originalImage.src = '/wasm-demos/image.jpg'; // 실제 이미지 경로로 교체
+  originalImage.onload = () => {
+    canvas.width = originalImage.width;
+    canvas.height = originalImage.height;
+    ctx.drawImage(originalImage, 0, 0);
+    imageLoaded = true; // ✅ 이미지가 완전히 로드된 시점 표시
+    canvas.classList.remove('hidden'); // Show canvas after image is loaded
   };
 
-  createModule().then((Module) => {
-    console.log('WASM Module initialized:', Module);
-    window.Module = Module;
+  // WASM 모듈 초기화
+  createModule().then(mod => {
+    Module = mod;
+    console.log('WASM ready');
+  });
 
-    document.getElementById('startLoop').addEventListener('click', () => {
-      const N = Number(document.getElementById('loopCount').value);
-      const logInterval = Math.max(1, Math.floor(N / 10));
+  // Pixelation (JS)
+  function pixelateJs(imageData, blockSize) {
+    const pixels = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
 
-      t0 = performance.now();
-      Module.ccall('runLoop', 'void', ['number', 'number'], [N, logInterval]);
-    });
+    for (let y = 0; y < height; y += blockSize) {
+      for (let x = 0; x < width; x += blockSize) {
+        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const px = x + dx, py = y + dy;
+            if (px >= width || py >= height) continue;
+            const idx = (py * width + px) * 4;
+            rSum += pixels[idx];
+            gSum += pixels[idx + 1];
+            bSum += pixels[idx + 2];
+            count++;
+          }
+        }
+        if (count === 0) continue;
+        const r = rSum / count | 0, g = gSum / count | 0, b = bSum / count | 0;
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const px = x + dx, py = y + dy;
+            if (px >= width || py >= height) continue;
+            const idx = (py * width + px) * 4;
+            pixels[idx] = r;
+            pixels[idx + 1] = g;
+            pixels[idx + 2] = b;
+          }
+        }
+      }
+    }
+  }
+
+  // Pixelation (WASM)
+  function pixelateWasm(imageData, blockSize) {
+    const pixels = imageData.data;
+    const byteCount = pixels.length;
+    const ptr = Module._malloc(byteCount);
+    Module.HEAPU8.set(pixels, ptr);
+
+    const width = imageData.width;
+    const height = imageData.height;
+
+    Module.ccall('pixelate', 'void',
+      ['number', 'number', 'number', 'number'],
+      [ptr, width, height, blockSize]
+    );
+
+    pixels.set(Module.HEAPU8.subarray(ptr, ptr + byteCount));
+    Module._free(ptr);
+  }
+
+  // Run Pixelation
+  btn.addEventListener('click', () => {
+    if (!imageLoaded) {
+      alert('Image not loaded.');
+      return;
+    }
+
+    const mode = Array.from(modeInputs).find(r => r.checked)?.value;
+    const blockSize = parseInt(blockSlider.value, 10);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const t0 = performance.now();
+
+    if (mode === 'js') {
+      pixelateJs(imageData, blockSize);
+    } else if (mode === 'wasm') {
+      if (!Module || !Module.ccall) {
+        alert('WASM not ready.');
+        return;
+      }
+      pixelateWasm(imageData, blockSize);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    elapsedEl.textContent = Math.round(performance.now() - t0);
   });
 </script>
