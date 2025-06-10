@@ -1,0 +1,77 @@
+---
+import DefaultLayout from '../layouts/DefaultLayout.astro'
+---
+
+<DefaultLayout title="Cat/Dog Classifier" hideFooter={true}>
+  <section class="my-12">
+    <div class="container mx-auto">
+      <button class="text-lg" onclick="window.history.back()">← Back to Demos</button>
+      <br /><br /><br />
+      <h1 class="text-3xl font-bold">Cat/Dog Breed Classifier</h1>
+      <p class="mt-4 text-2xl">This is a Cat/Dog breed classifier using TensorFlow.js. Technically, this demo uses only JS, but TensorFlow.js is implemented with WebAssembly. Check out the prediction performance!</p>
+      <br><br>
+      <div class="mt-8 space-y-4 flex flex-col items-center">
+        <p id="modelStatus" class="text-3xl">🔄 Downloading model...</p>
+        <br><br>
+        <b class="text-2xl" id="pasteText" style="display: none;">📋 Paste an image here (Ctrl+V)</b>
+        <br><br>
+        <div class="flex flex-col items-center" id="imageContainer" style="display: none;">
+          <canvas id="canvas" width="224" height="224" class="border border-gray-300"></canvas>
+          <br><br>
+          <p class="text-3xl mt-4"><b>Prediction:</b> <span id="prediction">-</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</DefaultLayout>
+
+<script type="module">
+  import * as tf from 'https://esm.sh/@tensorflow/tfjs';
+  import * as mobilenet from 'https://esm.sh/@tensorflow-models/mobilenet@2.1.0';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const predictionEl = document.getElementById('prediction');
+  const modelStatus = document.getElementById('modelStatus');
+
+  let model = null;
+
+  // 모델 로딩
+  const modelPromise = mobilenet.load().then((loadedModel) => {
+    model = loadedModel;
+    modelStatus.textContent = '✅ Model loaded. Paste an image to classify.';
+    pasteText.style.display = 'block';
+    imageContainer.style.display = 'flex';
+  });
+
+  // 이미지 처리 함수
+  async function handleImage(img) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const tfImage = tf.browser.fromPixels(canvas);
+    const predictions = await model.classify(tfImage);
+    predictionEl.textContent = predictions[0]?.className ?? 'Unknown';
+  }
+
+  // 붙여넣기 이벤트 리스너
+  window.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageItem = Array.from(items).find(item => item.type.startsWith('image/'));
+    if (!imageItem) return;
+
+    if (!model) {
+      predictionEl.textContent = '⏳ Waiting for model to load...';
+      await modelPromise;
+    }
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => handleImage(img);
+    img.src = URL.createObjectURL(file);
+  });
+</script>
