@@ -4,62 +4,67 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
 
 <DefaultLayout title="Compare Loop Speed" hideFooter={true}>
   <section class="my-12">
-    <div class="container">
-      <h1>Compare Loop Speed</h1>
-    </div>
-  </section>
-  <section class="my-12">
-    <div class="space-content container">
-      <p class="text">Compare the speed of C++ WebAssembly and JavaScript by running identical loop operations.</p>
-      
-      <div class="border-b border-gray-300 my-8"></div>
-      <div class="mt-8">
-        <label for="loopCount" class="block text-lg mb-2">Enter number of loops:</label>
-        <input type="number" id="loopCount" class="border p-2 rounded" min="1" value="1000">
-        <button id="startLoop" class="bg-blue-500 text-white px-4 py-2 rounded ml-2">Start Loop</button>
-      </div>
+    <div class="container mx-auto">
+      <h1 class="text-3xl font-bold">Compare Loop Speed (JS vs WebAssembly)</h1>
+      <p class="mt-4 text-gray-700">Run an identical counting loop in plain JavaScript and in C++ compiled to WebAssembly to compare performance.</p>
 
-      <div class="mt-4">
-        <p class="text-xl">Current Count: <span id="counter">0</span></p>
-        <p class="text-xl">Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+      <div class="mt-8 flex flex-col gap-4">
+        <label class="block">
+          <span class="text-lg">Number of iterations</span>
+          <input
+            id="loopCount"
+            type="number"
+            min="1"
+            value="10000000"
+            class="mt-1 w-full rounded border p-2 text-black"
+          />
+        </label>
+
+        <fieldset class="flex gap-4">
+          <label class="flex items-center gap-2">
+            <input type="radio" name="mode" id="mode-js" value="js" checked>
+            <span>JavaScript</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="mode" id="mode-wasm" value="wasm">
+            <span>WebAssembly (C++)</span>
+          </label>
+        </fieldset>
+
+        <button id="startLoop" class="w-max rounded bg-blue-500 px-4 py-2 font-semibold text-white">
+          Start Benchmark
+        </button>
+
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <p>Current Count: <span id="counter">0</span></p>
+          <p>Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+        </div>
       </div>
     </div>
   </section>
 </DefaultLayout>
 
-<script>
-  const loopCountInput = document.getElementById('loopCount');
-  const startButton = document.getElementById('startLoop');
-  const counterDisplay = document.getElementById('counter');
-  const elapsedTimeDisplay = document.getElementById('elapsedTime');
-  let isRunning = false;
-  let counter = 0;
-  let startTime = 0;
+<script type="module">
+  import createModule from '/wasm-demos/loop.js';
 
-  startButton.addEventListener('click', () => {
-    if (isRunning) return;
-    
-    const loopCount = parseInt(loopCountInput.value);
-    if (loopCount < 1) return;
+  let t0 = 0;
 
-    isRunning = true;
-    counter = 0;
-    startTime = performance.now();
-    
-    const loop = () => {
-      if (counter >= loopCount) {
-        isRunning = false;
-        const endTime = performance.now();
-        const elapsedTime = endTime - startTime;
-        elapsedTimeDisplay.textContent = elapsedTime.toFixed(2);
-        return;
-      }
-      
-      counter++;
-      counterDisplay.textContent = counter;
-      requestAnimationFrame(loop);
-    };
+  // 전역 콜백 등록
+  window.onLoopLog = function (count) {
+    document.getElementById('counter').textContent = count.toLocaleString();
+    document.getElementById('elapsedTime').textContent = Math.round(performance.now() - t0);
+  };
 
-    requestAnimationFrame(loop);
+  createModule().then((Module) => {
+    console.log('WASM Module initialized:', Module);
+    window.Module = Module;
+
+    document.getElementById('startLoop').addEventListener('click', () => {
+      const N = Number(document.getElementById('loopCount').value);
+      const logInterval = Math.max(1, Math.floor(N / 10));
+
+      t0 = performance.now();
+      Module.ccall('runLoop', 'void', ['number', 'number'], [N, logInterval]);
+    });
   });
 </script>
