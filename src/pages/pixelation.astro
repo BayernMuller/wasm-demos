@@ -39,7 +39,7 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
           </button>
         </div>
 
-        <p>Elapsed Time: <span id="elapsedTime">0</span> ms</p>
+        <p>Elapsed Time: <span id="elapsedTime">-</span> ms</p>
 
         <!-- Canvas -->
         <canvas id="canvas" width="512" height="512" class="border border-gray-400 hidden"></canvas>
@@ -105,6 +105,7 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
 
   // Pixelation (JS)
   function pixelateJs(imageData, blockSize) {
+    const t0 = performance.now();
     const pixels = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
@@ -137,6 +138,8 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
         }
       }
     }
+    const jsExecutionTime = performance.now() - t0;
+    elapsedEl.textContent = Math.round(jsExecutionTime);
   }
 
   // Pixelation (WASM)
@@ -149,6 +152,7 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
     const width = imageData.width;
     const height = imageData.height;
 
+    const t0 = performance.now();
     Module.ccall('pixelate', 'void',
       ['number', 'number', 'number', 'number'],
       [ptr, width, height, blockSize]
@@ -156,6 +160,9 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
 
     pixels.set(Module.HEAPU8.subarray(ptr, ptr + byteCount));
     Module._free(ptr);
+
+    const wasmExecutionTime = performance.now() - t0;
+    elapsedEl.textContent = Math.round(performance.now() - t0);
   }
 
   // Run Pixelation
@@ -169,7 +176,6 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
     const blockSize = parseInt(blockSlider.value, 10);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const t0 = performance.now();
 
     if (mode === 'js') {
       pixelateJs(imageData, blockSize);
@@ -180,8 +186,6 @@ import DefaultLayout from '../layouts/DefaultLayout.astro'
       }
       pixelateWasm(imageData, blockSize);
     }
-
-    ctx.putImageData(imageData, 0, 0);
-    elapsedEl.textContent = Math.round(performance.now() - t0);
+    ctx.putImageData(imageData, 0, 0);  
   });
 </script>
