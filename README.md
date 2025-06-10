@@ -23,10 +23,9 @@
 * It includes demos for music recognition, image processing, and other applications.
 
 ### Demos
-* *TODO: Add demos here*
-
-### Building the WebAssembly Modules
-* *TODO: Add instructions here*
+* [Pixelation](https://bayernmuller.github.io/wasm-demos/pixelation)
+* [Song Recognition](https://bayernmuller.github.io/wasm-demos/recognition)
+* [Cat/Dog Breed Classifier](https://bayernmuller.github.io/wasm-demos/catdog)
 
 ### License
 * wasm-demos is licensed under the MIT license. See [LICENSE](LICENSE) for more details.
