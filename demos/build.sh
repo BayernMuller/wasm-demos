@@ -7,8 +7,7 @@ if ! em++ -v 2>&1 | grep -q "Emscripten"; then
     exit 1
 fi
 
-cd loop
-em++ loop.cpp -o loop.js \
+em++ pixelation/pixelation.cpp -o pixelation/pixelation.js \
   -s MODULARIZE=1 \
   -s EXPORT_NAME=createModule \
   -s EXPORT_ES6=1 \
@@ -17,9 +16,6 @@ em++ loop.cpp -o loop.js \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s WASM=1 \
   -O3
-cd ..
 
-
-
-mv loop/*.js ../public
-mv loop/*.wasm ../public
+mv pixelation/*.js ../public
+mv pixelation/*.wasm ../public
