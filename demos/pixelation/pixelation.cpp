@@ -31,7 +31,6 @@ void EMSCRIPTEN_KEEPALIVE pixelate(
             int g = gSum / count;
             int b = bSum / count;
 
-            // 블록 전체를 평균 색으로 덮기
             for (int dy = 0; dy < blockSize; ++dy) {
                 for (int dx = 0; dx < blockSize; ++dx) {
                     int px = x + dx;
@@ -42,7 +41,6 @@ void EMSCRIPTEN_KEEPALIVE pixelate(
                     pixels[idx]     = r;
                     pixels[idx + 1] = g;
                     pixels[idx + 2] = b;
-                    // Alpha 유지
                 }
             }
         }
