@@ -1,0 +1,144 @@
+---
+import DefaultLayout from '../layouts/DefaultLayout.astro'
+---
+<style>
+
+#cover {
+    border-radius: 30px;
+    margin-right: 10px;
+}
+
+.track-container {
+    display: none;
+    justify-content: center; /* Center align horizontally */
+    align-items: center; /* Center align vertically */
+    padding: 5px; /* Added padding for mobile */
+    box-sizing: border-box; /* Ensure padding is included in the total width */
+}
+
+.track-info {
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
+    width: 400px;
+}
+
+
+
+</style>
+
+<DefaultLayout title="Song Recognition" hideFooter={true}>
+  <section class="my-12">
+    <div class="container mx-auto">
+      <button class="text-lg" onclick="window.history.back()">← Back to Demos</button>
+      <br><br><br>
+      <h1 class="text-3xl font-bold">Song Recognition</h1>
+      <p class="mt-4 text-2xl">C++ Sound Fingerprinting algorithm to recognize songs by their audio fingerprint.</p>
+
+      <p class="mt-4 text-2xl">If you want to try with sample song, <a href="/wasm-demos/sample.wav" download>download sample song</a></p>
+      <br><br><br>
+
+      <label class="flex flex-col gap-2">
+          <span class="text-lg"><b>Upload WAV Audio File:</b></span>
+          <input type="file" id="audioUpload" accept="audio/*" class="w-full" />
+      </label>
+      <br><br>
+      
+      <div id="track-container" class="track-container">
+          <img id="cover" src="" width="200px">
+          <div class="track-info">
+              <h1 id="title"></h1>
+              <p id="artist"></p>
+              <p id="album" class="caption"></p>
+          </div>
+      </div>
+      <br><br><br>
+      <p id="result" class="text-gray-500 break-words" style="white-space: pre-wrap;"></p>
+    </div>
+  </section>
+</DefaultLayout>
+
+<script type="module">
+    import createModule from '/wasm-demos/vibra.js';
+  
+    let Module;
+  
+    // WASM 모듈 초기화
+    createModule().then(mod => {
+      Module = mod;
+      console.log('WASM ready');
+    });
+
+    function getSignature(rawwav) {
+        if (!Module || !Module.ccall) {
+            throw new Error('Vibra not initialized');
+        }
+
+        const dataPtr = Module._malloc(rawwav.length);
+        Module.HEAPU8.set(rawwav, dataPtr);
+        const signaturePtr = Module.ccall(
+            'GetWavSignature',
+            'number',
+            ['number', 'number'],
+            [dataPtr, rawwav.length]
+        );
+        Module._free(dataPtr);
+
+        const uri = Module.ccall('GetFingerprint', 'string', ['number'], [signaturePtr]);
+        const samplems = Module.ccall('GetSampleMs', 'number', ['number'], [signaturePtr]);
+
+        Module.ccall('FreeFingerprint', 'void', ['number'], [signaturePtr]);
+
+        return { uri, samplems };
+    }
+
+    const audioUpload = document.getElementById('audioUpload');
+    audioUpload.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+            alert('No file selected');
+            return;
+        }
+        const arrayBuffer = await file.arrayBuffer();
+        const rawwav = new Uint8Array(arrayBuffer);
+
+        // Check if the first four bytes are 'RIFF'
+        const riffHeader = String.fromCharCode(...rawwav.slice(0, 4));
+        if (riffHeader !== 'RIFF') {
+            alert('Invalid file format. The file must be a WAV file with a RIFF header.');
+            return;
+        }
+
+        try {
+            const { uri, samplems } = getSignature(rawwav);
+            document.getElementById('result').textContent = uri;
+
+            let response = await fetch(`https://vercel-proxy-rust-three.vercel.app/api/shazam?uri=${uri}&samplems=${samplems}`);
+            let data = await response.json();
+
+            if (data.retryms) {
+                console.log('Recognition failed');
+                return false;
+            } else {
+                console.log('Recognition successful');
+                const track = data.track || {};
+                const sections = track.sections || [];
+                const metadata = sections[0]?.metadata || [];
+                const album = metadata[0]?.text;
+                const title = track.title;
+                const artist = track.subtitle;
+                const cover = track.images?.coverart;
+
+                document.getElementById('title').textContent = title;
+                document.getElementById('artist').textContent = artist;
+                document.getElementById('album').textContent = album;
+                document.getElementById('cover').src = cover;
+
+                document.getElementById('track-container').style.display = 'flex';
+            }
+        } catch (error) {
+            console.error('Error processing audio file:', error);
+            alert('Failed to process audio file.');
+        }
+    });
+</script>
